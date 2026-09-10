@@ -1,0 +1,18 @@
+{
+  "source": "https://spacetimedb.com/llms.txt",
+  "count": 3,
+  "pages": [
+    {
+      "page": "https://spacetimedb.com/docs/http/database",
+      "file": "http/database.md"
+    },
+    {
+      "page": "https://spacetimedb.com/docs/http/identity",
+      "file": "http/identity.md"
+    },
+    {
+      "page": "https://spacetimedb.com/docs/http/authorization",
+      "file": "http/authorization.md"
+    }
+  ]
+}

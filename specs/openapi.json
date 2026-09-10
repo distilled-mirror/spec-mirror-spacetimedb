@@ -1,0 +1,917 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SpacetimeDB HTTP API",
+    "version": "2.0.0",
+    "description": "HTTP management API for SpacetimeDB (/v1/database, /v1/identity, GET /v1/ping), assembled from https://spacetimedb.com/docs/http and https://spacetimedb.com/llms.txt. SpacetimeDB does not publish a first-party OpenAPI document. WebSocket subscribe and database-defined HTTP handler catch-alls are omitted."
+  },
+  "servers": [
+    {
+      "url": "https://maincloud.spacetimedb.com"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Database",
+      "description": "/v1/database management endpoints."
+    },
+    {
+      "name": "Identity",
+      "description": "/v1/identity token endpoints."
+    },
+    {
+      "name": "System",
+      "description": "Top-level connectivity probe."
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    },
+    {}
+  ],
+  "paths": {
+    "/v1/ping": {
+      "get": {
+        "operationId": "ping",
+        "tags": [
+          "System"
+        ],
+        "summary": "No-op connectivity probe.",
+        "description": "Does nothing and returns no data. Clients can send requests to this endpoint to determine whether they are able to connect to SpacetimeDB.",
+        "security": [
+          {}
+        ],
+        "responses": {
+          "200": {
+            "description": "The host is reachable."
+          }
+        }
+      }
+    },
+    "/v1/database": {
+      "post": {
+        "operationId": "publishDatabase",
+        "tags": [
+          "Database"
+        ],
+        "summary": "Publish a new database given its module code.",
+        "description": "Publish a new database with no name. Accessible through the CLI as `spacetime publish`. Request body is a WebAssembly module in the binary format. If no Authorization header is provided, a new anonymous identity owns the database.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string",
+                "description": "WebAssembly module in the binary format."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The database was published.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "Success"
+                  ],
+                  "properties": {
+                    "Success": {
+                      "type": "object",
+                      "required": [
+                        "database_identity",
+                        "op"
+                      ],
+                      "properties": {
+                        "database_identity": {
+                          "type": "string"
+                        },
+                        "op": {
+                          "type": "string",
+                          "enum": [
+                            "created",
+                            "updated"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/database/{name_or_identity}": {
+      "parameters": [
+        {
+          "name": "name_or_identity",
+          "in": "path",
+          "required": true,
+          "description": "Database name or Spacetime identity.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "put": {
+        "operationId": "updateDatabase",
+        "tags": [
+          "Database"
+        ],
+        "summary": "Publish to a database given its module code.",
+        "description": "Publish to a database with the specified name or identity. If the name does not exist, creates a new database. Accessible through the CLI as `spacetime publish`.",
+        "parameters": [
+          {
+            "name": "clear",
+            "in": "query",
+            "description": "Whether to clear any existing data when updating an existing database.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string",
+                "description": "WebAssembly module in the binary format."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The database was published.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "Success"
+                  ],
+                  "properties": {
+                    "Success": {
+                      "type": "object",
+                      "required": [
+                        "database_identity",
+                        "op"
+                      ],
+                      "properties": {
+                        "domain": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "database_identity": {
+                          "type": "string"
+                        },
+                        "op": {
+                          "type": "string",
+                          "enum": [
+                            "created",
+                            "updated"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "A database with the given name exists, but the identity is not allowed to edit it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "PermissionDenied"
+                  ],
+                  "properties": {
+                    "PermissionDenied": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getDatabase",
+        "tags": [
+          "Database"
+        ],
+        "summary": "Get a JSON description of a database.",
+        "description": "Get a database's identity, owner identity, host type, and a hash of its WASM module.",
+        "responses": {
+          "200": {
+            "description": "Database description.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "database_identity",
+                    "owner_identity",
+                    "host_type",
+                    "initial_program"
+                  ],
+                  "properties": {
+                    "database_identity": {
+                      "type": "string",
+                      "description": "The Spacetime identity of the database."
+                    },
+                    "owner_identity": {
+                      "type": "string",
+                      "description": "The Spacetime identity of the database's owner."
+                    },
+                    "host_type": {
+                      "type": "string",
+                      "description": "The module host type; currently always \"wasm\".",
+                      "enum": [
+                        "wasm"
+                      ]
+                    },
+                    "initial_program": {
+                      "type": "string",
+                      "description": "Hash of the WASM module with which the database was initialized."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Database not found."
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteDatabase",
+        "tags": [
+          "Database"
+        ],
+        "summary": "Delete a database.",
+        "description": "Delete a database. Accessible through the CLI as `spacetime delete`. Deleting a database requires ownership.",
+        "responses": {
+          "200": {
+            "description": "The database was deleted."
+          },
+          "204": {
+            "description": "The database was deleted."
+          },
+          "401": {
+            "description": "Caller is not the database owner."
+          },
+          "404": {
+            "description": "Database not found."
+          }
+        }
+      }
+    },
+    "/v1/database/{name_or_identity}/names": {
+      "parameters": [
+        {
+          "name": "name_or_identity",
+          "in": "path",
+          "required": true,
+          "description": "Database name or Spacetime identity.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getDatabaseNames",
+        "tags": [
+          "Database"
+        ],
+        "summary": "Get the names this database can be identified by.",
+        "responses": {
+          "200": {
+            "description": "Database names.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "names"
+                  ],
+                  "properties": {
+                    "names": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Database not found."
+          }
+        }
+      },
+      "post": {
+        "operationId": "addDatabaseName",
+        "tags": [
+          "Database"
+        ],
+        "summary": "Add a new name for this database.",
+        "description": "Takes as the request body a string containing the new name of the database.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string",
+                "description": "The new name of the database."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The name was set.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "Success"
+                  ],
+                  "properties": {
+                    "Success": {
+                      "type": "object",
+                      "properties": {
+                        "domain": {
+                          "type": "string"
+                        },
+                        "database_result": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The new name exists and the caller cannot edit it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "PermissionDenied"
+                  ],
+                  "properties": {
+                    "PermissionDenied": {
+                      "type": "object",
+                      "properties": {
+                        "domain": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setDatabaseNames",
+        "tags": [
+          "Database"
+        ],
+        "summary": "Set the list of names for this database.",
+        "description": "Setting names requires ownership of the database.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Names for this database."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The names were set.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "Success"
+                  ],
+                  "properties": {
+                    "Success": {
+                      "type": "object",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Caller cannot edit one of the names.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "PermissionDenied"
+                  ],
+                  "properties": {
+                    "PermissionDenied": {
+                      "type": "object",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/database/{name_or_identity}/identity": {
+      "parameters": [
+        {
+          "name": "name_or_identity",
+          "in": "path",
+          "required": true,
+          "description": "Database name or Spacetime identity.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getDatabaseIdentity",
+        "tags": [
+          "Database"
+        ],
+        "summary": "Get the identity of a database.",
+        "description": "Returns a hex string of the specified database's identity.",
+        "responses": {
+          "200": {
+            "description": "Database identity as a hex string.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Database not found."
+          }
+        }
+      }
+    },
+    "/v1/database/{name_or_identity}/call/{reducer}": {
+      "parameters": [
+        {
+          "name": "name_or_identity",
+          "in": "path",
+          "required": true,
+          "description": "Database name or Spacetime identity.",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "reducer",
+          "in": "path",
+          "required": true,
+          "description": "The name of the reducer or procedure.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "callReducer",
+        "tags": [
+          "Database"
+        ],
+        "summary": "Invoke a reducer or procedure in a database.",
+        "description": "The caller's identity is passed to the reducer via its ReducerContext. Request body is a JSON array of arguments.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {},
+                "description": "JSON array of arguments to the reducer."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reducer or procedure result.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "404": {
+            "description": "Database or reducer not found."
+          }
+        }
+      }
+    },
+    "/v1/database/{name_or_identity}/schema": {
+      "parameters": [
+        {
+          "name": "name_or_identity",
+          "in": "path",
+          "required": true,
+          "description": "Database name or Spacetime identity.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getDatabaseSchema",
+        "tags": [
+          "Database"
+        ],
+        "summary": "Get the schema for a database.",
+        "description": "Returns a RawModuleDef in JSON form. Accessible through the CLI as `spacetime describe`.",
+        "parameters": [
+          {
+            "name": "version",
+            "in": "query",
+            "description": "The version of RawModuleDef to return, e.g. 9.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "RawModuleDef JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Database not found."
+          }
+        }
+      }
+    },
+    "/v1/database/{name_or_identity}/logs": {
+      "parameters": [
+        {
+          "name": "name_or_identity",
+          "in": "path",
+          "required": true,
+          "description": "Database name or Spacetime identity.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getDatabaseLogs",
+        "tags": [
+          "Database"
+        ],
+        "summary": "Retrieve logs from a database.",
+        "description": "Viewing logs requires ownership of the database. Accessible through the CLI as `spacetime logs`. Returns text, or streaming text if follow is supplied.",
+        "parameters": [
+          {
+            "name": "num_lines",
+            "in": "query",
+            "description": "Number of most-recent log lines to retrieve.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "follow",
+            "in": "query",
+            "description": "Whether to continue receiving new logs via a stream.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Log text.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Caller is not the database owner."
+          },
+          "404": {
+            "description": "Database not found."
+          }
+        }
+      }
+    },
+    "/v1/database/{name_or_identity}/sql": {
+      "parameters": [
+        {
+          "name": "name_or_identity",
+          "in": "path",
+          "required": true,
+          "description": "Database name or Spacetime identity.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "executeSql",
+        "tags": [
+          "Database"
+        ],
+        "summary": "Run a SQL query against a database.",
+        "description": "Accessible through the CLI as `spacetime sql`. Request body is SQL queries, separated by `;`. Anonymous callers only have access to public tables.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string",
+                "description": "SQL queries, separated by `;`."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Statement results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "schema",
+                      "rows"
+                    ],
+                    "properties": {
+                      "schema": {
+                        "description": "JSON-encoded ProductType of the returned rows."
+                      },
+                      "rows": {
+                        "type": "array",
+                        "items": {},
+                        "description": "JSON-encoded ProductValues conforming to schema."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Database not found."
+          }
+        }
+      }
+    },
+    "/v1/identity": {
+      "post": {
+        "operationId": "createIdentity",
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Generate a new identity and token.",
+        "description": "Create a new identity. The returned token is an OpenID Connect compliant JWT signed by this SpacetimeDB host and is not portable to other clusters.",
+        "security": [
+          {}
+        ],
+        "responses": {
+          "200": {
+            "description": "New identity and token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "identity",
+                    "token"
+                  ],
+                  "properties": {
+                    "identity": {
+                      "type": "string"
+                    },
+                    "token": {
+                      "type": "string",
+                      "x-sensitive": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/websocket-token": {
+      "post": {
+        "operationId": "createWebsocketToken",
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Generate a short-lived access token for use in untrusted contexts.",
+        "description": "Generate a short-lived access token which can be used in untrusted contexts, e.g. embedded in URLs. Requires Authorization.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Short-lived JWT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "token"
+                  ],
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "x-sensitive": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token."
+          }
+        }
+      }
+    },
+    "/v1/identity/public-key": {
+      "get": {
+        "operationId": "getPublicKey",
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Get the public key used for verifying tokens.",
+        "description": "Fetches the public key used by the database to verify tokens. Content-Type is application/pem-certificate-chain.",
+        "security": [
+          {}
+        ],
+        "responses": {
+          "200": {
+            "description": "PEM certificate chain.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/{identity}/databases": {
+      "parameters": [
+        {
+          "name": "identity",
+          "in": "path",
+          "required": true,
+          "description": "A Spacetime identity.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "listIdentityDatabases",
+        "tags": [
+          "Identity"
+        ],
+        "summary": "List databases owned by an identity.",
+        "responses": {
+          "200": {
+            "description": "Owned database identities.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "identities"
+                  ],
+                  "properties": {
+                    "identities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Identities of databases owned by the path identity."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/{identity}/verify": {
+      "parameters": [
+        {
+          "name": "identity",
+          "in": "path",
+          "required": true,
+          "description": "A Spacetime identity.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "verifyIdentity",
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Verify an identity and token.",
+        "description": "Verify the validity of an identity/token pair. 204 if the token is valid and matches the identity; 400 if the token is valid but does not match; 401 if the token is invalid or missing.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Token is valid and matches the identity."
+          },
+          "400": {
+            "description": "Token is valid but does not match the identity."
+          },
+          "401": {
+            "description": "Token is invalid, or no Authorization header was sent."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "OpenID Connect compliant JWT, such as the token returned from POST /v1/identity. Many /v1/database endpoints also accept anonymous access (no Authorization header)."
+      }
+    }
+  }
+}
